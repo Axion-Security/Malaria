@@ -1,3 +1,4 @@
+> **Note:** This application only works on PCs that have **.NET 9** installed.
 # Malaria - C# Windows Forms Application Ransomware
 
 Malaria is a Windows Forms application designed to run automatically when the user logs in, disrupt the user interface, and prevent the termination of the application. The main functionalities of the app include modifying startup behavior, displaying an image on all screens, blocking Task Manager, and overriding window procedures to prevent users from interacting with system functions like ALT+F4, ALT+TAB, and ALT+ESC. Built in .NET 9
