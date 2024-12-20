@@ -80,6 +80,12 @@ public partial class Form1 : Form
             // Alt+Esc is pressed
             if ((ModifierKeys & Keys.Alt) != 0 && key == Keys.Escape) return;
         }
+        
+        // Windows
+        if (m.Msg == wmSysCommand && (int)m.WParam == 0x0201) return;
+        
+        // Windows + Tab
+        if (m.Msg == wmSysCommand && (int)m.WParam == 0x0023) return;
 
         base.WndProc(ref m);
     }
