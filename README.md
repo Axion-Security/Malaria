@@ -7,7 +7,7 @@ Malaria is a Windows Forms application designed to run automatically when the us
 
 - **Auto Start:** 
   - Adds the application to the Windows startup registry key to ensure it launches automatically when the user logs in.
-  - 
+  
 - **Remote Shell:** 
   - Connects to a Remote Server like netcat. You can then run commands externally in CMD of the victim.
     
@@ -26,6 +26,13 @@ Malaria is a Windows Forms application designed to run automatically when the us
 ## Disclaimer
 
 This project is intended for educational and research purposes only. It is essential to use such tools responsibly and ensure that they are not used maliciously or in violation of any laws. 
+
+## How to Use
+###Without Remote Shell
+- Download the release and run the .exe
+###With Remote Shell
+- Download the sourcecode and change in Form1 the ip and port then build it and run the created .exe
+
 
 ## License
 
